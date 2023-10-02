@@ -4,6 +4,8 @@ import java.io.*;
 
 public class SerialInfo implements Serializable {
 
+    private static final long serialVersionUID = 42L;
+
     private String hour, minutes, seconds;
     private final String fileName = "files/maintenance.ser";
     File serFile = new File(fileName);
@@ -19,6 +21,11 @@ public class SerialInfo implements Serializable {
         this.minutes = serialInfo.minutes;
         this.seconds = serialInfo.seconds;
     }
+
+   public String getSerialInfo() {
+        System.out.println("Hora: " + this.hour + ":" + this.minutes + ":" + this.seconds);
+       return null;
+   }
 
     public void openSerialFile() {
         try {

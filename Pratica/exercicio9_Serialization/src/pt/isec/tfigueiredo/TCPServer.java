@@ -29,25 +29,23 @@ public class TCPServer {
                 clientSocket = serverSocket.accept();
                 System.out.println("Cliente conectado desde " + clientSocket.getInetAddress() + ":" + clientSocket.getPort());
 
-                // Create output stream
+                //Deserializar os bytes recebidos (objecto do tipo String)
                 oout = new ObjectOutputStream(clientSocket.getOutputStream());
-
-                // Create input stream
                 oin = new ObjectInputStream(clientSocket.getInputStream());
 
                 String received = (String) oin.readObject();
 
                 System.out.println("Recebido \"" + received + "\"");
 
-                if (!received.equalsIgnoreCase(TIME_REQUEST)) {
+                if (!received.equalsIgnoreCase(TIME_REQUEST))
                     continue;
-                }
 
                 calendar = GregorianCalendar.getInstance();
 
-                // Send the calendar object to the client
+                // Serializar o objecto calendar para bout
                 oout.writeObject(calendar);
                 oout.flush();
+
                 System.out.println("Enviado para cliente.");
 
                 // Close the client socket

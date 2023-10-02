@@ -5,7 +5,6 @@ import java.io.*;
 import java.util.*;
 
 public class UDPClient {
-    private SerialInfo sers;
     public static final int MAX_SIZE = 10000;
     public static final String TIME_REQUEST = "TIME";
     public static final int TIMEOUT = 10; //segundos
@@ -27,6 +26,8 @@ public class UDPClient {
         DatagramPacket packet = null;
         Calendar response;
 
+        SerialInfo sers = new SerialInfo();
+
         if(args.length != 2){
             System.out.println("Sintaxe: java UdpSerializedTimeClientIncomplete serverAddress serverUdpPort");
             return;
@@ -43,8 +44,8 @@ public class UDPClient {
             bout = new ByteArrayOutputStream();
             oout = new ObjectOutputStream(bout);
             oout.writeObject(TIME_REQUEST);
-            
-            //Construir um datagrama UDP com o resultado da serializa��o
+
+            //Construir um datagrama UDP com o resultado da serialização
             packet = new DatagramPacket(bout.toByteArray(), bout.size(), serverAddr, serverPort);
 
             socket.send(packet);
@@ -54,9 +55,11 @@ public class UDPClient {
 
             //Deserializar o fluxo de bytes recebido para um array de bytes encapsulado por bin
             oin = new ObjectInputStream(new ByteArrayInputStream(packet.getData(), 0, packet.getLength()));
-            response = (Calendar) oin.readObject();
-            System.out.println("Hora indicada pelo servidor: " + response.getTime());
-        }catch(Exception e){
+            sers = (SerialInfo) oin.readObject();
+
+            System.out.println("Hora indicada pelo servidor: " + sers.getSerialInfo());
+
+        } catch(Exception e) {
             System.out.println("Problema:\n\t"+e);
         }
     }
