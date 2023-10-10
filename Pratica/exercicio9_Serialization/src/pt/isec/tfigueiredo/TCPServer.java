@@ -13,7 +13,6 @@ public class TCPServer {
         Socket clientSocket = null;
         ObjectOutputStream oout = null;
         ObjectInputStream oin = null;
-        Calendar calendar;
 
         if (args.length != 1) {
             System.out.println("Sintaxe: java TcpSerializedTimeServer listeningPort");
@@ -40,19 +39,29 @@ public class TCPServer {
                 if (!received.equalsIgnoreCase(TIME_REQUEST))
                     continue;
 
-                calendar = GregorianCalendar.getInstance();
+                Thread.sleep(15000);
 
-                // Serializar o objecto calendar para bout
-                oout.writeObject(calendar);
-                oout.flush();
+                ObjectOutputStream bout = new ObjectOutputStream(clientSocket.getOutputStream());
+                bout.writeObject(Calendar.getInstance());
+                bout.flush();
 
                 System.out.println("Enviado para cliente.");
 
                 // Close the client socket
                 clientSocket.close();
             }
-        } catch (Exception e) {
+        } catch (UnknownHostException e) {
+            System.out.println("Destino desconhecido:\n\t" + e);
+        } catch (NumberFormatException e) {
+            System.out.println("O porto do servidor deve ser um inteiro positivo:\n\t" + e);
+        } catch (ClassNotFoundException e) {
             System.out.println("Problema:\n\t" + e);
+        } catch (SocketTimeoutException e) {
+            System.out.println("Não foi recebida qualquer resposta:\n\t" + e);
+        } catch (IOException e) {
+            System.out.println("Ocorreu um erro de acesso ao socket:\n\t" + e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         } finally {
             try {
                 if (oout != null) oout.close();

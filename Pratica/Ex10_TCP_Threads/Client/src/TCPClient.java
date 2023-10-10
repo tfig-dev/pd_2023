@@ -1,8 +1,9 @@
-package pt.isec.tfigueiredo;
-
-import java.io.*;
-import java.net.*;
-import java.util.*;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.net.UnknownHostException;
 
 public class TCPClient {
     public static final String TIME_REQUEST = "TIME";
@@ -11,8 +12,7 @@ public class TCPClient {
     public static void main(String[] args) throws UnknownHostException {
         InetAddress serverAddr = null;
         int serverPort = -1;
-
-        Calendar response;
+        Time response;
 
         if (args.length != 2) {
             System.out.println("Sintaxe: java TcpSerializedTimeClient serverAddress serverTcpPort");
@@ -22,6 +22,8 @@ public class TCPClient {
         serverAddr = InetAddress.getByName(args[0]);
         serverPort = Integer.parseInt(args[1]);
 
+
+        //usamos o try porque fecha objetos que sejam closable
         try (Socket socket = new Socket(serverAddr, serverPort)) {
 
             socket.setSoTimeout(TIMEOUT * 1000);
@@ -31,14 +33,37 @@ public class TCPClient {
             bout.flush();
 
             ObjectInputStream oin = new ObjectInputStream(socket.getInputStream());
-            response = (Calendar) oin.readObject();
+            response = (Time) oin.readObject();
 
-            System.out.println("Hora indicada pelo servidor: " + response.get(GregorianCalendar.HOUR_OF_DAY) + ":" +
-                    response.get(GregorianCalendar.MINUTE) + ":" + response.get(GregorianCalendar.SECOND));
+            System.out.println(response.toString());
+
         } catch (ClassNotFoundException e) {
             System.out.println("Classe não encontrada:\n\t" + e);
         } catch (Exception e) {
             System.out.println("Problema:\n\t" + e);
         }
+    }
+}
+
+class Time implements Serializable {
+    private static final long serialVersionUID = 42L;
+
+    private int horas, minutos, segundos;
+    private transient int milisegundos;
+
+    public Time(int horas, int minutos, int segundos) {
+        this.horas = horas;
+        this.minutos = minutos;
+        this.segundos = segundos;
+    }
+
+    public Time(int horas, int minutos, int segundos, int milisegundos) {
+        this(horas, minutos, segundos);
+        this.milisegundos = milisegundos;
+    }
+
+    @Override
+    public String toString() {
+        return "Hora indicada pelo servidor -> " + this.horas + "h:" + this.minutos + "m::" + this.segundos + "s::" + this.milisegundos + "ms";
     }
 }
