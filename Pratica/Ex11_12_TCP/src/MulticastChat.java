@@ -7,16 +7,8 @@ serializado que encapsula o "nickname" e a mensagem.*/
    No c�digo: System.setProperty("java.net.preferIPv4Stack", "true");
 */
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.MulticastSocket;
-import java.net.NetworkInterface;
-import java.net.SocketException;
-
+import java.io.*;
+import java.net.*;
 
 public class MulticastChat extends Thread {
     public static final String LIST = "LIST";
@@ -43,52 +35,66 @@ public class MulticastChat extends Thread {
         DatagramPacket pkt;
         Msg msg;
         /*...*/
+        Object obj;
 
         if(s == null || !running){
             return;
         }
 
         try{
-
             while(running){
 
                 pkt = new DatagramPacket(new byte[MAX_SIZE], MAX_SIZE);
                 s.receive(pkt);
 
-                try{
+                //o facto de só usarmos o getData não garante que ele leia a mensagem toda
+                //try (ObjectInputStream oin = new ObjectInputStream(new ByteArrayInputStream(pkt.getData()))) {
+                try (ObjectInputStream oin = new ObjectInputStream(new ByteArrayInputStream(pkt.getData(), 0, pkt.getLength()))) {
 
-                    // "Deserializa" o objecto transportado no datagrama acabado de ser recebido
-
-                    /*...*/
+                    obj = oin.readObject();
 
                     System.out.println();
                     System.out.print("(" + pkt.getAddress().getHostAddress() + ":" + pkt.getPort() + ") ");
 
                     //Caso o objecto recebido seja uma instancia de Msg...
-                    if(/*...*/){
+                    if(obj instanceof Msg){
 
-                        msg = /*...*/
+                        msg = (Msg) obj;
 
-                        if(msg.getMsg().toUpperCase().contains(LIST)){
+                        if (msg.getMsg().toUpperCase().contains(LIST)) {
 
-                            //Envia o username 'a origem sob a forma de um objecto serializado do tipo String
-                            /*...*/
+                            try (ByteArrayOutputStream buff = new ByteArrayOutputStream();
+                                ObjectOutputStream bout = new ObjectOutputStream(buff)) {
+
+                                bout.writeObject(username);
+
+                                //Envia o username 'a origem sob a forma de um objecto serializado do tipo String
+                                pkt.setData(buff.toByteArray(), 0, buff.size());
+                                //ou o código de cima ou as 2 linhas debaixo
+                                //pkt.setData(buff.toByteArray());
+                                //pkt.setLength(buff.size());
+
+                            } catch (IOException e) {
+                                System.out.println();
+                                System.out.println("Erro ao serializar a mensagem!");
+                            }
 
                             s.send(pkt);
                             continue;
                         }
 
                         //Mostra a mensagem recebida bem como a identificacao do emissor
-                        System.out.println("Recebido \"" + /*...*/ + "\" de " + /*...*/);
+                        System.out.println("Recebido \"" + msg.getMsg() + "\" de " + msg.getNickname());
 
                         //Caso o objecto recebido seja uma instancia de String...
-                    } else if(/*...*/){
+                    } else if (obj instanceof String) {
 
                         //Mostra a String
-                        System.out.println(/*...*/);
+                        System.out.println("String: " + obj.toString());
                     }
 
-                    System.out.println(); System.out.print("> ");
+                    System.out.println();
+                    System.out.print("> ");
 
                 }catch(ClassNotFoundException e){
                     System.out.println();
@@ -97,10 +103,9 @@ public class MulticastChat extends Thread {
                     System.out.println();
                     System.out.println("Impossibilidade de aceder ao conteudo da mensagem recebida!");
                 }
-
             }
 
-        }catch(IOException e){
+        } catch(IOException e) {
             if(running){
                 System.out.println(e);
             }
@@ -117,7 +122,7 @@ public class MulticastChat extends Thread {
         InetAddress group;
         int port;
         MulticastSocket socket = null;
-        DatagramPacket dgram;
+        DatagramPacket dgram = null;
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
         String msg;
         NetworkInterface nif;
@@ -125,7 +130,7 @@ public class MulticastChat extends Thread {
         MulticastChat t = null;
 
         if(args.length != 4){
-            System.out.println("Sintaxe: java MulticastChat <nickname> <groupo multicast> <porto> <interface de rede usada para multicast>");
+            System.out.println("Sintaxe: java MulticastChat <nickname> <grupo multicast> <porto> <interface de rede usada para multicast>");
             return;
         }
 
@@ -145,12 +150,12 @@ public class MulticastChat extends Thread {
             //Lanca a thread adicional dedicada a aguardar por datagramas no socket e a processá-los
             t = new MulticastChat(args[0], socket);
             //t.setDaemon(true);
+            //thread deamon quer dizer que ela está a correr mas não nos interessa se ela termina ou não
             t.start();
 
             System.out.print("> ");
 
-            while(true){
-
+            while(true) {
                 msg = in.readLine();
 
                 if(msg.equalsIgnoreCase(EXIT)){
@@ -158,12 +163,23 @@ public class MulticastChat extends Thread {
                 }
 
                 //Envia para o grupo de multicast e porto escolhidos uma instancia de Msg
-                /*...*/
-                socket.send(dgram);
+                //Receita para escrever num pacote um objeto serializado
+                try (ByteArrayOutputStream buff = new ByteArrayOutputStream();
+                    ObjectOutputStream bout = new ObjectOutputStream(buff)) {
 
+                    bout.writeObject(new Msg(args[0], msg));
+                    dgram = new DatagramPacket(buff.toByteArray(), buff.size(), group, port);
+
+                } catch (IOException e) {
+                    //e.printStackTrace();
+                    System.out.println();
+                    System.out.println("Erro ao serializar a mensagem!");
+                }
+
+                socket.send(dgram);
             }
 
-        }finally{
+        } finally {
 
             if(t != null){
                 t.terminate();
@@ -174,23 +190,29 @@ public class MulticastChat extends Thread {
             }
 
             //t.join(); //Para esperar que a thread termine caso esteja em modo daemon
-
         }
 
     }
 }
 
 
-class Msg {
+class Msg implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     protected String nickname;
     protected String msg;
 
     public Msg(String nickname, String msg){
-        /*...*/
+        this.nickname = nickname;
+        this.msg = msg;
     }
 
-    public String getNickname(){ /*...*/ }
-    public String getMsg(){ /*...*/ }
+    public String getNickname() {
+        return this.nickname;
+    }
+    public String getMsg(){
+        return this.msg;
+    }
 
 }
 
