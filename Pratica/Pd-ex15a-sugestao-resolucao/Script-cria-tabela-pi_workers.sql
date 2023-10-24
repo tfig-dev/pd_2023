@@ -1,0 +1,8 @@
+SET time_zone = "+00:00";
+
+CREATE TABLE pi_workers (
+  address VARCHAR(100) NOT NULL,
+  port INT NOT NULL,
+  timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (address, port)
+);
