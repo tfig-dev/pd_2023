@@ -30,17 +30,10 @@ public class UserAuthenticationProvider implements AuthenticationProvider {
                 System.out.println("user authenticated");
                 List<GrantedAuthority> authorities = new ArrayList<>();
                 if (userAuth.isAdmin()) authorities.add(new SimpleGrantedAuthority("ADMIN"));
-                //provavelmente não precisa
                 else authorities.add(new SimpleGrantedAuthority("USER"));
                 return new UsernamePasswordAuthenticationToken(username, password, authorities);
             }
         }
-
-//        if (username.equals("admin") && password.equals("admin")) {
-//            List<GrantedAuthority> authorities = new ArrayList<>();
-//            authorities.add(new SimpleGrantedAuthority("ADMIN"));
-//            return new UsernamePasswordAuthenticationToken(username, password, authorities);
-//        }
 
         return null;
     }

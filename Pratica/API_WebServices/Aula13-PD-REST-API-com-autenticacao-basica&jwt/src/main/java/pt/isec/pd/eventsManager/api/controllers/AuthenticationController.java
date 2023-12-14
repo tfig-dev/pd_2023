@@ -3,6 +3,7 @@ package pt.isec.pd.eventsManager.api.controllers;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,43 +21,23 @@ public class AuthenticationController {
         this.tokenService = tokenService;
     }
 //
-    @PostMapping("/login")
+    @GetMapping("/login")
     public String login(Authentication authentication) {
         return tokenService.generateToken(authentication);
     }
-//
-//    @PostMapping("/login")
-//    public ResponseEntity login(@RequestBody(required = true) UserConfig userConfig) {
-//
-//        System.out.println("username: " + userConfig.email);
-//        if (Data.getInstance().checkIfUserExists(userConfig.email)) {
-//            User user = Data.getInstance().authenticate(userConfig.email, userConfig.password);
-//            if (user != null) {
-//                return ResponseEntity.ok("{"
-//                        + "\"username\":" + "\"" + user.getName() + "\","
-//                        + "\"nif\":" + user.getNif() + ","
-//                        + "\"email\":" + "\"" + user.getEmail() + "\","
-//                        + "\"isAdmin\":" + "\"" + user.isAdmin() + "\"" + "}");
-//            }
-//        } else {
-//            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Utilizador não existe.");
-//        }
-//
-//        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Utilizador ou palavra-pase inválidos.");
-//    }
 
     @PostMapping("/register")
-    public ResponseEntity register(@RequestBody(required = true) UserConfig userConfig) {
+    public ResponseEntity register(
+            @RequestBody UserConfig userConfig) {
 
-        if (Data.getInstance().checkIfUserExists(userConfig.email)) {
+        if (userConfig.username == null || userConfig.nif == 0 || userConfig.email == null || userConfig.password == null)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro ao criar utilizador - Parametros necessários em falta.");
+
+        if (Data.getInstance().checkIfUserExists(userConfig.email))
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Utilizador já existe.");
-        }
 
-        Data.getInstance().registerUser(new User(userConfig.username, userConfig.nif, userConfig.email, userConfig.password, false));
-        return ResponseEntity.status(HttpStatus.CREATED).body("{"
-                + "\"username\":" + "\"" + userConfig.username + "\","
-                + "\"nif\":" + userConfig.nif + ","
-                + "\"email\":" + "\"" + userConfig.email + "\","
-                + "\"isAdmin\":" + "\"" + false + "\"" + "toucinho}");
+        return Data.getInstance().registerUser(new User(userConfig.username, userConfig.nif, userConfig.email, userConfig.password, false))
+                ? ResponseEntity.status(HttpStatus.CREATED).body(userConfig)
+                : ResponseEntity.status(HttpStatus.BAD_REQUEST).body(userConfig + "\nErro na base de dados ao criar utilizador.");
     }
 }

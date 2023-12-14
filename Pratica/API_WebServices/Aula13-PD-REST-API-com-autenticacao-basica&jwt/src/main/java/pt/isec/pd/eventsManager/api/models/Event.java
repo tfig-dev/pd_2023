@@ -6,12 +6,12 @@ import java.io.Serializable;
 public class Event implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
-    private final int ID;
-    private final String name;
-    private final String location;
-    private final String date;
-    private final String startTime;
-    private final String endTime;
+    private int ID;
+    private String name;
+    private String location;
+    private String date;
+    private String startTime;
+    private String endTime;
 
     public Event(int ID, String name, String location, String date, String startTime, String endTime) {
         this.ID = ID;
@@ -21,15 +21,15 @@ public class Event implements Serializable {
         this.startTime = startTime;
         this.endTime = endTime;
     }
-
-    public Event(String name, String location, String date, String startTime, String endTime) {
-        this.ID = -1;
-        this.name = name;
-        this.location = location;
-        this.date = date;
-        this.startTime = startTime;
-        this.endTime = endTime;
-    }
+//
+//    public Event(String name, String location, String date, String startTime, String endTime) {
+//        this.ID = -1;
+//        this.name = name;
+//        this.location = location;
+//        this.date = date;
+//        this.startTime = startTime;
+//        this.endTime = endTime;
+//    }
 
     @Override
     public String toString() {

@@ -4,6 +4,7 @@ import pt.isec.pd.eventsManager.api.models.Event;
 import pt.isec.pd.eventsManager.api.models.User;
 
 import java.sql.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -162,10 +163,9 @@ public class Data {
             preparedStatement.setString(6, newUser.getEmail());
 
             int rowsAffected = preparedStatement.executeUpdate();
-
             return rowsAffected > 0;
+
         } catch (SQLException e) {
-            System.out.println("dás erro?");
             e.printStackTrace();
             return false;
         }
@@ -249,7 +249,7 @@ public class Data {
         }
     }
 
-    public String checkEvent(String eventCode, User loggedUser) {
+    public String checkEvent(String eventCode, String loggedUser) {
         if (eventCode == null || eventCode.isEmpty()) return "error";
         if (loggedUser == null) return "error";
 
@@ -258,21 +258,24 @@ public class Data {
             try (PreparedStatement selectEventStatement = connection.prepareStatement(selectEventQuery)) {
                 selectEventStatement.setString(1, eventCode);
                 try (ResultSet eventResultSet = selectEventStatement.executeQuery()) {
+
                     if (eventResultSet.next()) {
                         int eventId = eventResultSet.getInt("ID");
-
                         String selectParticipantQuery = "SELECT * FROM EVENT_PARTICIPANT WHERE EVENT_ID = ? AND USER_EMAIL = ?";
+
                         try (PreparedStatement selectParticipantStatement = connection.prepareStatement(selectParticipantQuery)) {
                             selectParticipantStatement.setInt(1, eventId);
-                            selectParticipantStatement.setString(2, loggedUser.getEmail());
+                            selectParticipantStatement.setString(2, loggedUser);
+
                             try (ResultSet participantResultSet = selectParticipantStatement.executeQuery()) {
+
                                 if (participantResultSet.next()) {
                                     return "used";
                                 } else {
                                     String insertParticipantQuery = "INSERT INTO EVENT_PARTICIPANT (EVENT_ID, USER_EMAIL) VALUES (?, ?)";
                                     try (PreparedStatement insertParticipantStatement = connection.prepareStatement(insertParticipantQuery)) {
                                         insertParticipantStatement.setInt(1, eventId);
-                                        insertParticipantStatement.setString(2, loggedUser.getEmail());
+                                        insertParticipantStatement.setString(2, loggedUser);
                                         insertParticipantStatement.executeUpdate();
                                         return "success";
                                     }
@@ -306,6 +309,70 @@ public class Data {
             e.printStackTrace();
             return false;
         }
+    }
+
+    public boolean createEvent_v3(Event event) {
+        if (event == null) return false;
+
+        String insertEventSql = "INSERT INTO EVENT (NAME, LOCAL, DATE, BEGINHOUR, ENDHOUR) VALUES (?, ?, ?, ?, ?)";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(insertEventSql)) {
+            preparedStatement.setString(1, event.getName());
+            preparedStatement.setString(2, event.getLocation());
+            preparedStatement.setString(3, event.getDate());
+            preparedStatement.setString(4, event.getStartTime());
+            preparedStatement.setString(5, event.getEndTime());
+            preparedStatement.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public List<Event> getAttendanceRecords_v2(String eventName, String location, String startDate, String endDate, String loggedUser) {
+        List<Event> events = new ArrayList<>();
+
+        try {
+            StringBuilder queryBuilder = new StringBuilder();
+            queryBuilder.append("SELECT * FROM EVENT_PARTICIPANT EP ");
+            queryBuilder.append("INNER JOIN EVENT E ON EP.EVENT_ID = E.ID ");
+            queryBuilder.append("INNER JOIN USER U ON EP.USER_EMAIL = U.EMAIL ");
+            queryBuilder.append("WHERE 1=1 ");
+
+            if (eventName != null && !eventName.isEmpty()) queryBuilder.append("AND E.NAME LIKE ? ");
+            if (startDate != null && !startDate.isEmpty()) queryBuilder.append("AND E.DATE >= ? ");
+            if (endDate != null && !endDate.isEmpty()) queryBuilder.append("AND E.DATE <= ? ");
+            if (location != null && !location.isEmpty()) queryBuilder.append("AND E.LOCAL LIKE ? ");
+            queryBuilder.append("AND U.EMAIL = ?");
+
+            try (PreparedStatement preparedStatement = connection.prepareStatement(queryBuilder.toString())) {
+                int parameterIndex = 1;
+
+                if (eventName != null && !eventName.isEmpty()) preparedStatement.setString(parameterIndex++, "%" + eventName + "%");
+                if (startDate != null && !startDate.isEmpty()) preparedStatement.setString(parameterIndex++, startDate);
+                if (endDate != null && !endDate.isEmpty()) preparedStatement.setString(parameterIndex++, endDate);
+                if (location != null && !location.isEmpty()) preparedStatement.setString(parameterIndex++, "%" + location + "%");
+                preparedStatement.setString(parameterIndex, loggedUser);
+
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    while (resultSet.next()) {
+                        Event event = new Event(
+                                resultSet.getInt("ID"),
+                                resultSet.getString("NAME"),
+                                resultSet.getString("LOCAL"),
+                                resultSet.getString("DATE"),
+                                resultSet.getString("BEGINHOUR"),
+                                resultSet.getString("ENDHOUR")
+                        );
+                        events.add(event);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return events;
     }
 
     public List<Event> getAttendanceRecords(String eventName, String day, String startDate, String endDate, boolean admin, User loggedUser) {
@@ -459,12 +526,33 @@ public class Data {
         }
     }
 
+    public Event deleteEvent_v2(int eventID) {
+        Event deletedEvent = getEventById(eventID);
+
+        String query = "DELETE FROM EVENT WHERE ID = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setInt(1, eventID);
+            int rowsAffected = preparedStatement.executeUpdate();
+
+            if (rowsAffected > 0)
+                return deletedEvent;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+
+        return null;
+    }
+
     public List<User> getRecords(int eventID) {
         if (eventID <= 0) return new ArrayList<>();
         List<User> records = new ArrayList<>();
+
         String query = "SELECT U.* FROM EVENT_PARTICIPANT EP " +
                 "INNER JOIN USER U ON EP.USER_EMAIL = U.EMAIL " +
                 "WHERE EP.EVENT_ID = ?";
+
         try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             preparedStatement.setInt(1, eventID);
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -534,9 +622,43 @@ public class Data {
     }
 
     public boolean checkIfEventExists(int eventID) {
+
         String query = "SELECT * FROM EVENT WHERE ID = ?";
         try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             preparedStatement.setInt(1, eventID);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                return resultSet.next();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean checkIfEventExistsByAll(Event event) {
+        if (event == null) return false;
+
+        String query = "SELECT * FROM EVENT WHERE NAME = ? AND LOCAL = ? AND DATE = ? AND BEGINHOUR = ? AND ENDHOUR = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, event.getName());
+            preparedStatement.setString(2, event.getLocation());
+            preparedStatement.setString(3, event.getDate());
+            preparedStatement.setString(4, event.getStartTime());
+            preparedStatement.setString(5, event.getEndTime());
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                return resultSet.next();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+
+    }
+
+    public boolean checkIfEventExistsByName(String name) {
+        String query = "SELECT * FROM EVENT WHERE NAME = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, name);
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 return resultSet.next();
             }
@@ -599,5 +721,104 @@ public class Data {
             e.printStackTrace();
         }
         return -1;
+    }
+
+    public List<Event> getAllEvents(String eventName, String startDate, String endDate, String location) {
+        List<Event> events = new ArrayList<>();
+
+        try {
+            StringBuilder queryBuilder = new StringBuilder();
+            queryBuilder.append("SELECT * FROM EVENT");
+
+            if (eventName != null && !eventName.isEmpty()) queryBuilder.append(" WHERE NAME LIKE ?");
+            if (startDate != null && !startDate.isEmpty()) queryBuilder.append(" WHERE DATE >= ?");
+            if (endDate != null && !endDate.isEmpty()) queryBuilder.append(" AND DATE <= ?");
+            if (location != null && !location.isEmpty()) queryBuilder.append(" WHERE LOCAL LIKE ?");
+
+            try (PreparedStatement preparedStatement = connection.prepareStatement(queryBuilder.toString())) {
+                int parameterIndex = 1;
+
+                if (eventName != null && !eventName.isEmpty()) preparedStatement.setString(parameterIndex++, "%" + eventName + "%");
+                if (startDate != null && !startDate.isEmpty()) preparedStatement.setString(parameterIndex++, startDate);
+                if (endDate != null && !endDate.isEmpty()) preparedStatement.setString(parameterIndex++, endDate);
+                if (location != null && !location.isEmpty()) preparedStatement.setString(parameterIndex++, "%" + location + "%");
+
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    while (resultSet.next()) {
+                        Event event = new Event(
+                                resultSet.getInt("ID"),
+                                resultSet.getString("NAME"),
+                                resultSet.getString("LOCAL"),
+                                resultSet.getString("DATE"),
+                                resultSet.getString("BEGINHOUR"),
+                                resultSet.getString("ENDHOUR")
+                        );
+                        events.add(event);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        return events;
+    }
+
+    public Event getEventById(int eventId) {
+        Event event = null;
+        String query = "SELECT * FROM EVENT WHERE ID = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setInt(1, eventId);
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    String eventName = resultSet.getString("NAME");
+                    String eventLocal = resultSet.getString("LOCAL");
+                    String eventDate = resultSet.getString("DATE");
+                    String eventBeginHour = resultSet.getString("BEGINHOUR");
+                    String eventEndHour = resultSet.getString("ENDHOUR");
+
+                    event = new Event(eventId, eventName, eventLocal, eventDate, eventBeginHour, eventEndHour);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return event;
+    }
+
+    public int getEventIdByCode(String eventCode) {
+        if (eventCode == null || eventCode.isEmpty()) return -1;
+
+        String query = "SELECT ID FROM EVENT WHERE CODE = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, eventCode);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    return resultSet.getInt("ID");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return -1;
+    }
+
+    public boolean isParticipantRegistered(int eventId, String loggedUser) {
+        String selectParticipantQuery = "SELECT 1 FROM EVENT_PARTICIPANT WHERE EVENT_ID = ? AND USER_EMAIL = ?";
+
+        try (PreparedStatement selectParticipantStatement = connection.prepareStatement(selectParticipantQuery)) {
+            selectParticipantStatement.setInt(1, eventId);
+            selectParticipantStatement.setString(2, loggedUser);
+
+            try (ResultSet participantResultSet = selectParticipantStatement.executeQuery()) {
+                return participantResultSet.next();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return false;
     }
 }
