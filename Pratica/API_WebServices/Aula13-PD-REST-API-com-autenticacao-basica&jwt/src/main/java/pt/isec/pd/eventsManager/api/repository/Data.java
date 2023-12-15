@@ -3,6 +3,7 @@ package pt.isec.pd.eventsManager.api.repository;
 import pt.isec.pd.eventsManager.api.models.Event;
 import pt.isec.pd.eventsManager.api.models.User;
 
+import java.security.SecureRandom;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -231,8 +232,8 @@ public class Data {
                         updateStatement.setString(1, generatedCode);
 
                         LocalDateTime expirationTime = LocalDateTime.now().plusMinutes(minutes);
-                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-                        String formattedExpirationTime = expirationTime.format(formatter);
+                        String formattedExpirationTime = expirationTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+
                         updateStatement.setString(2, formattedExpirationTime);
 
                         updateStatement.setInt(3, eventID);
@@ -821,4 +822,96 @@ public class Data {
 
         return false;
     }
+
+    public String generateCode() {
+        final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        final int CODE_LENGTH = 5;
+        String code = "";
+
+        do {
+            SecureRandom random = new SecureRandom();
+            StringBuilder codeBuilder = new StringBuilder();
+
+            for (int i = 0; i < CODE_LENGTH; i++) {
+                int randomIndex = random.nextInt(CHARACTERS.length());
+                char randomChar = CHARACTERS.charAt(randomIndex);
+                codeBuilder.append(randomChar);
+            }
+
+            code = codeBuilder.toString();
+
+        } while (getEventIdByCode(code) != -1);
+
+        return code;
+    }
+
+    public boolean isCodeValid(String eventCode) {
+        if (eventCode == null || eventCode.isEmpty()) return false;
+
+        try {
+            String selectEventQuery = "SELECT * FROM EVENT WHERE CODE = ?";
+            try (PreparedStatement selectEventStatement = connection.prepareStatement(selectEventQuery)) {
+                selectEventStatement.setString(1, eventCode);
+                try (ResultSet eventResultSet = selectEventStatement.executeQuery()) {
+                    if (eventResultSet.next()) {
+                        LocalDateTime expirationTime = LocalDateTime.parse(eventResultSet.getString("CODEEXPIRATIONTIME"), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                        return expirationTime.isAfter(LocalDateTime.now());
+                    } else {
+                        return false;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public String checkEvent(String eventCode, User loggedUser) {
+        if (eventCode == null || eventCode.isEmpty()) return "error";
+        if (loggedUser == null) return "error";
+
+        try {
+            String selectEventQuery = "SELECT * FROM EVENT WHERE CODE = ?";
+            try (PreparedStatement selectEventStatement = connection.prepareStatement(selectEventQuery)) {
+                selectEventStatement.setString(1, eventCode);
+                try (ResultSet eventResultSet = selectEventStatement.executeQuery()) {
+                    if (eventResultSet.next()) {
+                        int eventId = eventResultSet.getInt("ID");
+                        LocalDateTime expirationTime = LocalDateTime.parse(eventResultSet.getString("CODEEXPIRATIONTIME"), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+
+                        if (expirationTime.isBefore(LocalDateTime.now())) {
+                            return "expired";
+                        }
+
+                        String selectParticipantQuery = "SELECT * FROM EVENT_PARTICIPANT WHERE EVENT_ID = ? AND USER_EMAIL = ?";
+                        try (PreparedStatement selectParticipantStatement = connection.prepareStatement(selectParticipantQuery)) {
+                            selectParticipantStatement.setInt(1, eventId);
+                            selectParticipantStatement.setString(2, loggedUser.getEmail());
+                            try (ResultSet participantResultSet = selectParticipantStatement.executeQuery()) {
+                                if (participantResultSet.next()) {
+                                    return "used";
+                                } else {
+                                    String insertParticipantQuery = "INSERT INTO EVENT_PARTICIPANT (EVENT_ID, USER_EMAIL) VALUES (?, ?)";
+                                    try (PreparedStatement insertParticipantStatement = connection.prepareStatement(insertParticipantQuery)) {
+                                        insertParticipantStatement.setInt(1, eventId);
+                                        insertParticipantStatement.setString(2, loggedUser.getEmail());
+                                        insertParticipantStatement.executeUpdate();
+                                        return "success";
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        return "error";
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return "error";
+        }
+    }
+
+
 }

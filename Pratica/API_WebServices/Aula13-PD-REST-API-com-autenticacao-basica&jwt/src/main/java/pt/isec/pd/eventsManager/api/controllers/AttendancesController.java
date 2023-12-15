@@ -26,8 +26,10 @@ public class AttendancesController {
         if (!authentication.getAuthorities().toString().contains("ADMIN"))
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Utilizador sem permissões de Administrador.");
 
-        //TODO: testar e melhorar devido à falta de verificações
         List<User> users = Data.getInstance().getRecords(id);
+        if (users.isEmpty())
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Não foram encontrados registos.");
+
         return ResponseEntity.status(HttpStatus.OK).body(users);
     }
 
@@ -78,6 +80,9 @@ public class AttendancesController {
 
         if (eventID < 0)
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Código inválido.");
+
+        if (!Data.getInstance().isCodeValid(code))
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Código expirado.");
 
         if (Data.getInstance().isParticipantRegistered(eventID, authentication.getName()))
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Presença já registada.");

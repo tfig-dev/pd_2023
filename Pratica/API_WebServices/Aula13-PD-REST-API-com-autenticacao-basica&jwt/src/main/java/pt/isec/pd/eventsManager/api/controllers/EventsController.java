@@ -11,9 +11,9 @@ import org.springframework.web.bind.annotation.*;
 import pt.isec.pd.eventsManager.api.models.Event;
 import pt.isec.pd.eventsManager.api.repository.Data;
 
-import java.sql.SQLOutput;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("events")
@@ -102,5 +102,28 @@ public class EventsController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro da base de dados ao eliminar evento.");
 
         return ResponseEntity.status(HttpStatus.OK).body(event + "\nEvento eliminado com sucesso.");
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity generateCode(
+            Authentication authentication,
+            @PathVariable("id") Integer id,
+            @RequestBody Map<String, Integer> RequestBody) {
+
+        Integer timeout = RequestBody.get("timeout");
+
+        if (!authentication.getAuthorities().toString().contains("ADMIN"))
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Utilizador sem permissões de Administrador.");
+
+        if (!Data.getInstance().checkIfEventExists(id))
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("O evento não existe.");
+
+        if (timeout <= 0)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro ao gerar código - Parametros necessários em falta.");
+
+        if (Data.getInstance().updateCode(id, timeout, Data.getInstance().generateCode()))
+            return ResponseEntity.status(HttpStatus.OK).body(Data.getInstance().getEventById(id) + "\nCódigo gerado com sucesso.");
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro a gerar código na base de dados.");
     }
 }

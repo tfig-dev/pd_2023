@@ -1,5 +1,8 @@
 package pt.isec.pd.eventsManager.api.models;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.io.Serial;
 import java.io.Serializable;
 
@@ -21,7 +24,7 @@ public class Event implements Serializable {
         this.startTime = startTime;
         this.endTime = endTime;
     }
-//
+
 //    public Event(String name, String location, String date, String startTime, String endTime) {
 //        this.ID = -1;
 //        this.name = name;
@@ -31,9 +34,30 @@ public class Event implements Serializable {
 //        this.endTime = endTime;
 //    }
 
+    @JsonCreator
+    public Event(@JsonProperty("name") String name,
+                 @JsonProperty("location") String location,
+                 @JsonProperty("date") String date,
+                 @JsonProperty("startTime") String startTime,
+                 @JsonProperty("endTime") String endTime) {
+        this.ID = -1;
+        this.name = name;
+        this.location = location;
+        this.date = date;
+        this.startTime = startTime;
+        this.endTime = endTime;
+    }
+
     @Override
     public String toString() {
-        return "{" +
+        if (ID == -1)
+            return "{" +
+                    "\"name\": \"" + name + "\"" +
+                    ", \"location\": \"" + location + "\"" +
+                    ", \"date\": \"" + date + "\"" +
+                    ", \"startTime\": \"" + startTime + "\"" +
+                    ", \"endTime\": \"" + endTime + "\"}";
+        else return "{" +
                 "\"ID\": " + ID +
                 ", \"name\": \"" + name + "\"" +
                 ", \"location\": \"" + location + "\"" +
