@@ -52,8 +52,10 @@ public class AuthenticationController {
         if (Data.getInstance().checkIfUserExists(userConfig.email))
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Utilizador já existe.");
 
-        return Data.getInstance().registerUser(new User(userConfig.username, userConfig.nif, userConfig.email, userConfig.password, false))
-                ? ResponseEntity.status(HttpStatus.CREATED).body(userConfig + "\nUtilizador criado com sucesso.")
-                : ResponseEntity.status(HttpStatus.BAD_REQUEST).body(userConfig + "\nErro na base de dados ao criar utilizador.");
+        User user = new User(userConfig.username, userConfig.nif, userConfig.email, userConfig.password, false);
+
+        return Data.getInstance().registerUser(user)
+                ? ResponseEntity.status(HttpStatus.CREATED).body(user + "\nUtilizador criado com sucesso.")
+                : ResponseEntity.status(HttpStatus.BAD_REQUEST).body(user + "\nErro na base de dados ao criar utilizador.");
     }
 }

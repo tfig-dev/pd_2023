@@ -73,6 +73,9 @@ public class EventsController {
         if (!authentication.getAuthorities().toString().contains("ADMIN"))
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Utilizador sem permissões de Administrador.");
 
+        if (!Data.getInstance().checkIfEventExists(id))
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("O evento não existe.");
+
         Event events = Data.getInstance().getEventById(id);
 
         if (events == null)

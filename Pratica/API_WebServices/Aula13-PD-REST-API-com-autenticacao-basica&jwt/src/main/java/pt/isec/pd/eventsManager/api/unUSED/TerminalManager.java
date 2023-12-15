@@ -6,6 +6,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Map;
 
 public class TerminalManager {
@@ -14,10 +16,12 @@ public class TerminalManager {
             LOGIN = "/login", REGISTER = "/register", EVENTS = "/events", ATTENDANCES = "/attendances";
 
     private String name, username, email, password, tokenUser, location, date, startTime, endTime, startDate, endDate;
-    private int nif, idEvent3, validity;
+    private int nif, idEvent, idEvent2, idEvent3, validity;
     private boolean isAdmin;
     private BufferedReader bin = new BufferedReader(new InputStreamReader(System.in));
     private PrintStream pout = System.out;
+    public SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
 
     public void displayMainMenu() {
         pout.println("---------------------");
@@ -48,10 +52,12 @@ public class TerminalManager {
 
     public void displayFilterAdminMenu() {
         pout.println("---------------------");
-        pout.println("1 - Filtrar por nome");
-        pout.println("2 - Filtrar por local");
-        pout.println("3 - Filtrar por datas");
-        pout.println("4 - SAIR");
+        pout.println("1 - Listar todos");
+        pout.println("2 - Listar por ID");
+        pout.println("3 - Filtrar por nome");
+        pout.println("4 - Filtrar por local");
+        pout.println("5 - Filtrar por datas");
+        pout.println("6 - SAIR");
         pout.println("Opção: ");
     }
 
@@ -65,7 +71,7 @@ public class TerminalManager {
         pout.println("Opção: ");
     }
 
-    public void processUserInput() throws IOException {
+    public void processInput() throws IOException {
 
         boolean continueProcessing = true;
 
@@ -82,10 +88,23 @@ public class TerminalManager {
                     pout.println("Password: ");
                     password = bin.readLine();
 
+                    if (password.isBlank() || email.isBlank()) {
+                        pout.println("Informação inválida.");
+                        break;
+                    }
+
                     String hashedKey = Data.generateBase64(email, password);
+
+                    //TODO: prevenir dentro do endpoint as coisas a null/empty
                     Map<String, String> responseMap = Data.sendLoginRequest(API_LINK + LOGIN,"GET", "basic " + hashedKey, null);
 
                     tokenUser = responseMap.get("token");
+
+                    if (tokenUser.equals("null")) {
+                        pout.println("Utilizador inválido.");
+                        break;
+                    }
+
                     isAdmin = responseMap.get("admin").equalsIgnoreCase("true");
 
                     if (isAdmin)
@@ -109,6 +128,11 @@ public class TerminalManager {
                         nif = Integer.parseInt(bin.readLine());
                     } catch (NumberFormatException e) {
                         pout.println("Invalid NIF");
+                        break;
+                    }
+
+                    if (username.isBlank() || email.isBlank() || password.isBlank()) {
+                        pout.println("Informação inválida.");
                         break;
                     }
 
@@ -146,8 +170,15 @@ public class TerminalManager {
                     pout.println("Local do evento: ");
                     location = bin.readLine();
 
-                    pout.println("Data do evento (yyyy-mm-dd): ");
-                    date = bin.readLine();
+                    try {
+                        pout.println("Data do evento (yyyy-mm-dd): ");
+                        date = bin.readLine();
+
+                        Data.validateDateFormat(date, dateFormat);
+                    } catch (IOException | ParseException e) {
+                        pout.println("Informação inválida.");
+                        break;
+                    }
 
                     pout.println("Hora do inicio do evento (hh:mm): ");
                     startTime = bin.readLine();
@@ -155,6 +186,12 @@ public class TerminalManager {
                     pout.println("Hora do fim do evento (hh:mm): ");
                     endTime = bin.readLine();
 
+                    if (name.isBlank() || location.isBlank() || date.isBlank() || startTime.isBlank() || endTime.isBlank()) {
+                        pout.println("Informação inválida.");
+                        break;
+                    }
+
+                    //TODO: verificar se está bem dentro do endpoint
                     String insertEventBody = "{\"name\":\"" + name + "\",\"location\":\"" + location + "\",\"date\":\"" + date + "\",\"startTime\":\"" + startTime + "\",\"endTime\":\"" + endTime + "\"}";
 
                     System.out.println(insertEventBody);
@@ -163,10 +200,15 @@ public class TerminalManager {
 
                     break;
                 case "2":
-                    pout.println("ID do evento a eliminar: ");
-                    int id = Integer.parseInt(bin.readLine());
+                    try {
+                        pout.println("ID do evento a eliminar: ");
+                        idEvent = Integer.parseInt(bin.readLine());
+                    } catch (NumberFormatException e) {
+                        pout.println("Informação inválida.");
+                        break;
+                    }
 
-                    Data.sendRequestAndShowResponse(API_LINK + EVENTS + "/" + id, "DELETE", "bearer " + tokenUser, null);
+                    Data.sendRequestAndShowResponse(API_LINK + EVENTS + "/" + idEvent, "DELETE", "bearer " + tokenUser, null);
 
                     break;
                 case "3":
@@ -179,30 +221,71 @@ public class TerminalManager {
 
                         switch (eventsFilter) {
                             case "1":
+                                Data.sendRequestAndShowResponse(API_LINK + EVENTS, "GET", "bearer " + tokenUser, null);
+                                break;
+                            case "2":
+                                try {
+                                    pout.println("ID do evento: ");
+                                    idEvent = Integer.parseInt(bin.readLine());
+                                } catch (NumberFormatException e) {
+                                    pout.println("Informação inválida.");
+                                    break;
+                                }
+
+                                Data.sendRequestAndShowResponse(API_LINK + EVENTS + "/" + idEvent, "GET", "bearer " + tokenUser, null);
+                                break;
+                            case "3":
                                 pout.println("Nome do evento: ");
-                                String name = bin.readLine();
+                                name = bin.readLine();
+
+                                if (name.isBlank()) {
+                                    pout.println("Informação inválida.");
+                                    break;
+                                }
+
+                                System.out.println("vai isto: " + API_LINK + EVENTS + "?name=" + name);
 
                                 Data.sendRequestAndShowResponse(API_LINK + EVENTS + "?name=" + name, "GET", "bearer " + tokenUser, null);
 
                                 break;
-                            case "2":
+                            case "4":
                                 pout.println("Local do evento: ");
                                 String location = bin.readLine();
+
+                                if (location.isBlank()) {
+                                    pout.println("Informação inválida.");
+                                    break;
+                                }
 
                                 Data.sendRequestAndShowResponse(API_LINK + EVENTS + "?location=" + location, "GET", "bearer " + tokenUser, null);
 
                                 break;
-                            case "3":
-                                pout.println("Data Inicial (yyyy-mm-dd): ");
-                                startDate = bin.readLine();
+                            case "5":
+                                try {
+                                    pout.println("Data Inicial (yyyy-mm-dd): ");
+                                    startDate = bin.readLine();
 
-                                pout.println("Data Final (yyyy-mm-dd): ");
-                                endDate = bin.readLine();
+                                    Data.validateDateFormat(startDate, dateFormat);
+
+                                    pout.println("Data Final (yyyy-mm-dd): ");
+                                    endDate = bin.readLine();
+
+                                    Data.validateDateFormat(endDate, dateFormat);
+
+                                } catch (IOException | ParseException e) {
+                                    pout.println("Informação inválida.");
+                                    break;
+                                }
+
+                                if (startDate.isBlank() || endDate.isBlank()) {
+                                    pout.println("Informação inválida.");
+                                    break;
+                                }
 
                                 Data.sendRequestAndShowResponse(API_LINK + EVENTS + "?startDate=" + startDate + "&endDate=" + endDate, "GET", "bearer " + tokenUser, null);
 
                                 break;
-                            case "4":
+                            case "6":
                                 continueFilterMenuAdmin = false;
                                 break;
                             default:
@@ -213,8 +296,13 @@ public class TerminalManager {
 
                     break;
                 case "4":
-                    pout.println("ID do evento: ");
-                    int idEvent2 = Integer.parseInt(bin.readLine());
+                    try {
+                        pout.println("ID do evento: ");
+                        idEvent2 = Integer.parseInt(bin.readLine());
+                    } catch (NumberFormatException e) {
+                        pout.println("Informação inválida.");
+                        break;
+                    }
 
                     Data.sendRequestAndShowResponse(API_LINK + ATTENDANCES + "/" + idEvent2, "GET", "bearer " + tokenUser, null);
 
@@ -297,11 +385,27 @@ public class TerminalManager {
 
                                 break;
                             case "4":
-                                pout.println("Data Inicial (yyyy-mm-dd): ");
-                                startDate = bin.readLine();
 
-                                pout.println("Data Final (yyyy-mm-dd): ");
-                                endDate = bin.readLine();
+                                try {
+                                    pout.println("Data Inicial (yyyy-mm-dd): ");
+                                    startDate = bin.readLine();
+
+                                    Data.validateDateFormat(startDate, dateFormat);
+
+                                    pout.println("Data Final (yyyy-mm-dd): ");
+                                    endDate = bin.readLine();
+
+                                    Data.validateDateFormat(endDate, dateFormat);
+
+                                } catch (IOException | ParseException e) {
+                                    pout.println("Informação inválida.");
+                                    break;
+                                }
+
+                                if (startDate.isBlank() || endDate.isBlank()) {
+                                    pout.println("Informação inválida.");
+                                    break;
+                                }
 
                                 Data.sendRequestAndShowResponse(API_LINK + ATTENDANCES + "?startDate=" + startDate + "&endDate=" + endDate, "GET", "bearer " + tokenUser, null);
 

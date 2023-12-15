@@ -47,9 +47,9 @@ public class User implements Serializable {
     @Override
     public String toString() {
         return "{" +
-                "\"Email\": " + email +
-                ", \"name\": \"" + name + "\"" +
-                ", \"nif\": \"" + nif + "\"}";
+                "\"email\":\"" + email +
+                "\",\"name\":\"" + name +
+                "\",\"nif\":" + nif + "}";
     }
 
     public boolean isAdmin() {

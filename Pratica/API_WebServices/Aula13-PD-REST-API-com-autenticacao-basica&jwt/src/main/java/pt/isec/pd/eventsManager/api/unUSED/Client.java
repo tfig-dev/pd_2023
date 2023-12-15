@@ -12,7 +12,7 @@ public class Client {
     public static void main(String[] args) throws IOException {
         TerminalManager terminalManager = new TerminalManager();
 
-        terminalManager.processUserInput();
+        terminalManager.processInput();
     }
 
 }

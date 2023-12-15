@@ -26,6 +26,9 @@ public class AttendancesController {
         if (!authentication.getAuthorities().toString().contains("ADMIN"))
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Utilizador sem permissões de Administrador.");
 
+        if (!Data.getInstance().checkIfEventExists(id))
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("O evento não existe.");
+
         List<User> users = Data.getInstance().getRecords(id);
         if (users.isEmpty())
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Não foram encontrados registos.");

@@ -8,6 +8,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import pt.isec.pd.eventsManager.api.models.Event;
 import pt.isec.pd.eventsManager.api.models.User;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -17,6 +19,7 @@ import java.security.SecureRandom;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
 
 public class Data {
     private Connection connection;
@@ -214,7 +217,10 @@ public class Data {
         connection.disconnect();
 
         //System.out.println(verb + " " + uri + (body == null ? "" : " with body: " + body) + " ==> " + responseBody);
-        System.out.println(responseBody);
+
+        if (responseBody == null) {
+            responseBody = "{\"admin\":\"null\",\"token\":\"null\"}";
+        }
 
         return parseJsonString(responseBody);
     }
@@ -657,4 +663,12 @@ public class Data {
         return String.valueOf(Base64.encode(user + ":" + password));
     }
 
+    public static void validateDateFormat(String date, SimpleDateFormat dateFormat) throws ParseException {
+        Date parsedDate = dateFormat.parse(date);
+
+        // Se o parsing falhar, ou se a data fornecida não for igual à data formatada, lance uma exceção
+        if (!date.equals(dateFormat.format(parsedDate))) {
+            throw new ParseException("Formato de data inválido. Utilize o formato yyyy-MM-dd.", 0);
+        }
+    }
 }
