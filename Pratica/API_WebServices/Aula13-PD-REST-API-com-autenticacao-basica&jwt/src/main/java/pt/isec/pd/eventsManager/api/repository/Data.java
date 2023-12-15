@@ -1,19 +1,29 @@
 package pt.isec.pd.eventsManager.api.repository;
 
+import io.jsonwebtoken.Jwts;
+import com.nimbusds.jose.util.Base64;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import pt.isec.pd.eventsManager.api.models.Event;
 import pt.isec.pd.eventsManager.api.models.User;
 
+import java.util.*;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.security.SecureRandom;
 import java.sql.*;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
 
 public class Data {
     private Connection connection;
     private static Data instance;
+    public boolean isAdmin;
+    public Jwt userDetails;
+    public String tokenValue;
 
     public static Data getInstance(String location) {
         if (instance == null) {
@@ -122,6 +132,110 @@ public class Data {
         }
     }
 
+    public static String sendRequestAndShowResponse(String uri, String verb, String authorizationValue, String body) throws MalformedURLException, IOException {
+        String responseBody = null;
+        URL url = new URL(uri);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+        connection.setRequestMethod(verb);
+        connection.setRequestProperty("Accept", "application/xml, */*");
+
+        if(authorizationValue!=null) {
+            connection.setRequestProperty("Authorization", authorizationValue);
+        }
+
+        if(body!=null){
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "Application/Json");
+            connection.getOutputStream().write(body.getBytes());
+        }
+
+        connection.connect();
+
+        int responseCode = connection.getResponseCode();
+        //System.out.println("Response code: " +  responseCode + " (" + connection.getResponseMessage() + ")");
+
+        Scanner s;
+
+        if(connection.getErrorStream()!=null) {
+            s = new Scanner(connection.getErrorStream()).useDelimiter("\\A");
+            responseBody = s.hasNext() ? s.next() : null;
+        }
+
+        try {
+            s = new Scanner(connection.getInputStream()).useDelimiter("\\A");
+            responseBody = s.hasNext() ? s.next() : null;
+        } catch (IOException e){}
+
+        connection.disconnect();
+
+        //System.out.println(verb + " " + uri + (body==null?"":" with body: "+body) + " ==> " + responseBody);
+
+        System.out.println(responseBody);
+
+        return responseBody;
+    }
+
+    public static Map<String, String> sendLoginRequest(String uri, String verb, String authorizationValue, String body) throws MalformedURLException, IOException {
+        String responseBody = null;
+        URL url = new URL(uri);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+        connection.setRequestMethod(verb);
+        connection.setRequestProperty("Accept", "application/xml, */*");
+
+        if (authorizationValue != null) {
+            connection.setRequestProperty("Authorization", authorizationValue);
+        }
+
+        if (body != null) {
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "Application/Json");
+            connection.getOutputStream().write(body.getBytes());
+        }
+
+        connection.connect();
+
+        int responseCode = connection.getResponseCode();
+        //System.out.println("Response code: " + responseCode + " (" + connection.getResponseMessage() + ")");
+
+        Scanner s;
+        if (connection.getErrorStream() != null) {
+            s = new Scanner(connection.getErrorStream()).useDelimiter("\\A");
+            responseBody = s.hasNext() ? s.next() : null;
+        }
+
+        try {
+            s = new Scanner(connection.getInputStream()).useDelimiter("\\A");
+            responseBody = s.hasNext() ? s.next() : null;
+        } catch (IOException e) {
+        }
+
+        connection.disconnect();
+
+        //System.out.println(verb + " " + uri + (body == null ? "" : " with body: " + body) + " ==> " + responseBody);
+        System.out.println(responseBody);
+
+        return parseJsonString(responseBody);
+    }
+
+    private static Map<String, String> parseJsonString(String jsonString) {
+        Map<String, String> resultMap = new HashMap<>();
+
+        String[] keyValuePairs = jsonString
+                .substring(1, jsonString.length() - 1)
+                .split(",");
+
+        for (String pair : keyValuePairs) {
+            String[] entry = pair.split(":");
+            String key = entry[0].replace("\"", "").trim();
+            String value = entry[1].replace("\"", "").trim();
+            resultMap.put(key, value);
+        }
+
+        return resultMap;
+    }
+
     public User authenticate(String email1, String password1) {
         if(email1 == null || password1 == null) return null;
 
@@ -172,51 +286,6 @@ public class Data {
         }
     }
 
-    public boolean updateParticipations(String oldEmail, String newEmail) {
-        String query = "UPDATE EVENT_PARTICIPANT SET USER_EMAIL = ? WHERE USER_EMAIL = ?";
-        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-            preparedStatement.setString(1, newEmail);
-            preparedStatement.setString(2, oldEmail);
-            preparedStatement.executeUpdate();
-            return true;
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    private boolean updateField(String userEmail, String newValue, String selectSql, String updateSql) {
-        if (newValue == null || newValue.isEmpty()) return false;
-
-        try {
-            if (selectSql != null) {
-                try (PreparedStatement selectStatement = connection.prepareStatement(selectSql)) {
-                    selectStatement.setString(1, newValue);
-                    ResultSet resultSet = selectStatement.executeQuery();
-                    if (resultSet.next()) return false;
-                }
-            }
-
-            try (PreparedStatement updateStatement = connection.prepareStatement(updateSql)) {
-                updateStatement.setString(1, newValue);
-                updateStatement.setString(2, userEmail);
-                updateStatement.executeUpdate();
-                return true;
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    public void closeConnection() {
-        try {
-            connection.close();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     public boolean updateCode(int eventID, int minutes, String generatedCode) {
         if (minutes <= 0) return false;
         if (generatedCode == null || generatedCode.isEmpty()) return false;
@@ -250,69 +319,7 @@ public class Data {
         }
     }
 
-    public String checkEvent(String eventCode, String loggedUser) {
-        if (eventCode == null || eventCode.isEmpty()) return "error";
-        if (loggedUser == null) return "error";
-
-        try {
-            String selectEventQuery = "SELECT * FROM EVENT WHERE CODE = ?";
-            try (PreparedStatement selectEventStatement = connection.prepareStatement(selectEventQuery)) {
-                selectEventStatement.setString(1, eventCode);
-                try (ResultSet eventResultSet = selectEventStatement.executeQuery()) {
-
-                    if (eventResultSet.next()) {
-                        int eventId = eventResultSet.getInt("ID");
-                        String selectParticipantQuery = "SELECT * FROM EVENT_PARTICIPANT WHERE EVENT_ID = ? AND USER_EMAIL = ?";
-
-                        try (PreparedStatement selectParticipantStatement = connection.prepareStatement(selectParticipantQuery)) {
-                            selectParticipantStatement.setInt(1, eventId);
-                            selectParticipantStatement.setString(2, loggedUser);
-
-                            try (ResultSet participantResultSet = selectParticipantStatement.executeQuery()) {
-
-                                if (participantResultSet.next()) {
-                                    return "used";
-                                } else {
-                                    String insertParticipantQuery = "INSERT INTO EVENT_PARTICIPANT (EVENT_ID, USER_EMAIL) VALUES (?, ?)";
-                                    try (PreparedStatement insertParticipantStatement = connection.prepareStatement(insertParticipantQuery)) {
-                                        insertParticipantStatement.setInt(1, eventId);
-                                        insertParticipantStatement.setString(2, loggedUser);
-                                        insertParticipantStatement.executeUpdate();
-                                        return "success";
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        return "error";
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return "error";
-        }
-    }
-
     public boolean createEvent(Event event) {
-        if (event == null) return false;
-
-        String insertEventSql = "INSERT INTO EVENT (NAME, LOCAL, DATE, BEGINHOUR, ENDHOUR) VALUES (?, ?, ?, ?, ?)";
-        try (PreparedStatement preparedStatement = connection.prepareStatement(insertEventSql)) {
-            preparedStatement.setString(1, event.getName());
-            preparedStatement.setString(2, event.getLocation());
-            preparedStatement.setString(3, event.getDate());
-            preparedStatement.setString(4, event.getStartTime());
-            preparedStatement.setString(5, event.getEndTime());
-            preparedStatement.executeUpdate();
-            return true;
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    public boolean createEvent_v3(Event event) {
         if (event == null) return false;
 
         String insertEventSql = "INSERT INTO EVENT (NAME, LOCAL, DATE, BEGINHOUR, ENDHOUR) VALUES (?, ?, ?, ?, ?)";
@@ -376,92 +383,6 @@ public class Data {
         return events;
     }
 
-    public List<Event> getAttendanceRecords(String eventName, String day, String startDate, String endDate, boolean admin, User loggedUser) {
-        if (eventName == null && day == null && startDate == null && endDate == null) return new ArrayList<>();
-        if (loggedUser == null) return new ArrayList<>();
-
-        List<Event> attendanceRecords = new ArrayList<>();
-        if(!admin) {
-            try {
-                StringBuilder queryBuilder = new StringBuilder();
-                queryBuilder.append("SELECT * FROM EVENT_PARTICIPANT EP ");
-                queryBuilder.append("INNER JOIN EVENT E ON EP.EVENT_ID = E.ID ");
-                queryBuilder.append("INNER JOIN USER U ON EP.USER_EMAIL = U.EMAIL ");
-                queryBuilder.append("WHERE 1=1 ");
-
-                if (eventName != null && !eventName.isEmpty()) queryBuilder.append("AND E.NAME LIKE ? ");
-                if (day != null && !day.isEmpty()) queryBuilder.append("AND E.DATE = ? ");
-                if (startDate != null && !startDate.isEmpty()) queryBuilder.append("AND E.DATE >= ? ");
-                if (endDate != null && !endDate.isEmpty()) queryBuilder.append("AND E.DATE <= ? ");
-                queryBuilder.append("AND U.EMAIL = ?");
-
-                try (PreparedStatement preparedStatement = connection.prepareStatement(queryBuilder.toString())) {
-                    int parameterIndex = 1;
-
-                    if (eventName != null && !eventName.isEmpty()) preparedStatement.setString(parameterIndex++, "%" + eventName + "%");
-                    if (day != null && !day.isEmpty()) preparedStatement.setString(parameterIndex++, day);
-                    if (startDate != null && !startDate.isEmpty()) preparedStatement.setString(parameterIndex++, startDate);
-                    if (endDate != null && !endDate.isEmpty()) preparedStatement.setString(parameterIndex, endDate);
-                    preparedStatement.setString(parameterIndex, loggedUser.getEmail());
-
-                    try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                        while (resultSet.next()) {
-                            Event attendanceRecord = new Event(
-                                    resultSet.getInt("ID"),
-                                    resultSet.getString("NAME"),
-                                    resultSet.getString("LOCAL"),
-                                    resultSet.getString("DATE"),
-                                    resultSet.getString("BEGINHOUR"),
-                                    resultSet.getString("ENDHOUR")
-                            );
-                            attendanceRecords.add(attendanceRecord);
-                        }
-                    }
-                }
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        }
-        else {
-            try {
-                StringBuilder queryBuilder = new StringBuilder();
-                queryBuilder.append("SELECT * FROM EVENT");
-
-                if (eventName != null && !eventName.isEmpty()) queryBuilder.append(" WHERE NAME LIKE ?");
-                if (day != null && !day.isEmpty()) queryBuilder.append(" WHERE DATE = ?");
-                if (startDate != null && !startDate.isEmpty()) queryBuilder.append(" WHERE DATE >= ?");
-                if (endDate != null && !endDate.isEmpty()) queryBuilder.append(" AND DATE <= ?");
-
-                try (PreparedStatement preparedStatement = connection.prepareStatement(queryBuilder.toString())) {
-                    int parameterIndex = 1;
-
-                    if (eventName != null && !eventName.isEmpty()) preparedStatement.setString(parameterIndex++, "%" + eventName + "%");
-                    if (day != null && !day.isEmpty()) preparedStatement.setString(parameterIndex++, day);
-                    if (startDate != null && !startDate.isEmpty())preparedStatement.setString(parameterIndex++, startDate);
-                    if (endDate != null && !endDate.isEmpty()) preparedStatement.setString(parameterIndex, endDate);
-
-                    try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                        while (resultSet.next()) {
-                            Event attendanceRecord = new Event(
-                                    resultSet.getInt("ID"),
-                                    resultSet.getString("NAME"),
-                                    resultSet.getString("LOCAL"),
-                                    resultSet.getString("DATE"),
-                                    resultSet.getString("BEGINHOUR"),
-                                    resultSet.getString("ENDHOUR")
-                            );
-                            attendanceRecords.add(attendanceRecord);
-                        }
-                    }
-                }
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        }
-
-        return attendanceRecords;
-    }
-
     public boolean checkIfEventCanBeEdited(int eventID) {
         String query = "SELECT COUNT(*) FROM EVENT_PARTICIPANT WHERE EVENT_ID = ?";
         try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
@@ -478,56 +399,7 @@ public class Data {
         return true;
     }
 
-    public boolean editEvent(int eventID, String name, String local, String date, String startHour, String endHour) {
-        if (eventID <= 0) return false;
-        if (name != null && name.isEmpty() && local != null && local.isEmpty() && date != null && date.isEmpty() && startHour != null && startHour.isEmpty() && endHour != null && endHour.isEmpty()) return false;
-
-        try {
-            StringBuilder queryBuilder = new StringBuilder();
-            queryBuilder.append("UPDATE EVENT SET");
-
-            if (name != null && !name.isEmpty()) queryBuilder.append(" NAME = ?");
-            if (local != null && !local.isEmpty()) queryBuilder.append(" LOCAL = ?");
-            if (date != null && !date.isEmpty()) queryBuilder.append(" DATE = ?");
-            if (startHour != null && !startHour.isEmpty()) queryBuilder.append(" BEGINHOUR = ?");
-            if (endHour != null && !endHour.isEmpty()) queryBuilder.append(" ENDHOUR = ?");
-
-            queryBuilder.append(" WHERE ID = ?");
-
-            try (PreparedStatement preparedStatement = connection.prepareStatement(queryBuilder.toString())) {
-                int parameterIndex = 1;
-
-                if (name != null && !name.isEmpty()) preparedStatement.setString(parameterIndex++, name);
-                if (local != null && !local.isEmpty()) preparedStatement.setString(parameterIndex++, local);
-                if (date != null && !date.isEmpty()) preparedStatement.setString(parameterIndex++, date);
-                if (startHour != null && !startHour.isEmpty()) preparedStatement.setString(parameterIndex++, startHour);
-                if (endHour != null && !endHour.isEmpty()) preparedStatement.setString(parameterIndex++, endHour);
-                preparedStatement.setInt(parameterIndex, eventID);
-
-                int rowsAffected = preparedStatement.executeUpdate();
-                return rowsAffected > 0;
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-        } catch (RuntimeException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public boolean deleteEvent(int eventID) {
-        if (eventID <= 0) return false;
-        String query = "DELETE FROM EVENT WHERE ID = ?";
-        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-            preparedStatement.setInt(1, eventID);
-            int rowsAffected = preparedStatement.executeUpdate();
-            return rowsAffected > 0;
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    public Event deleteEvent_v2(int eventID) {
+    public Event deleteEvent(int eventID) {
         Event deletedEvent = getEventById(eventID);
 
         String query = "DELETE FROM EVENT WHERE ID = ?";
@@ -572,39 +444,6 @@ public class Data {
             e.printStackTrace();
         }
         return records;
-    }
-
-    public List<Event> getAttendanceEmailRecords(String parameter) {
-        if (parameter == null || parameter.isEmpty()) return new ArrayList<>();
-        List<Event> attendanceRecords = new ArrayList<>();
-
-        String query = "SELECT * FROM EVENT_PARTICIPANT EP " +
-                "INNER JOIN EVENT E ON EP.EVENT_ID = E.ID " +
-                "INNER JOIN USER U ON EP.USER_EMAIL = U.EMAIL " +
-                "WHERE U.EMAIL = ?";
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-            preparedStatement.setString(1, parameter);
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    Event attendanceRecord = new Event(
-                            resultSet.getInt("ID"),
-                            resultSet.getString("NAME"),
-                            resultSet.getString("LOCAL"),
-                            resultSet.getString("DATE"),
-                            resultSet.getString("BEGINHOUR"),
-                            resultSet.getString("ENDHOUR")
-                    );
-
-                    attendanceRecords.add(attendanceRecord);
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return attendanceRecords;
     }
 
     public boolean checkIfUserExists(String parameter) {
@@ -656,34 +495,6 @@ public class Data {
 
     }
 
-    public boolean checkIfEventExistsByName(String name) {
-        String query = "SELECT * FROM EVENT WHERE NAME = ?";
-        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-            preparedStatement.setString(1, name);
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                return resultSet.next();
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    public boolean deleteParticipant(int eventID, String parameter) {
-        if(!checkIfUserExists(parameter) || !checkIfEventExists(eventID)) return false;
-
-        String query = "DELETE FROM EVENT_PARTICIPANT WHERE EVENT_ID = ? AND USER_EMAIL = ?";
-        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-            preparedStatement.setInt(1, eventID);
-            preparedStatement.setString(2, parameter);
-            int rowsAffected = preparedStatement.executeUpdate();
-            return rowsAffected > 0;
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
     public boolean addParticipant(int eventID, String parameter) {
         if(!checkIfUserExists(parameter) || !checkIfEventExists(eventID)) return false;
 
@@ -697,31 +508,6 @@ public class Data {
             e.printStackTrace();
             return false;
         }
-    }
-
-    public void updateVersion() {
-        String updateVersionQuery = "UPDATE VERSION SET VERSION = VERSION + 1";
-
-        try (PreparedStatement updateVersionStatement = connection.prepareStatement(updateVersionQuery)) {
-            updateVersionStatement.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public int getVersion() {
-        String selectVersionQuery = "SELECT VERSION FROM VERSION";
-
-        try (PreparedStatement selectVersionStatement = connection.prepareStatement(selectVersionQuery)) {
-            try (ResultSet resultSet = selectVersionStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    return resultSet.getInt("VERSION");
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return -1;
     }
 
     public List<Event> getAllEvents(String eventName, String startDate, String endDate, String location) {
@@ -823,28 +609,6 @@ public class Data {
         return false;
     }
 
-    public String generateCode() {
-        final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        final int CODE_LENGTH = 5;
-        String code = "";
-
-        do {
-            SecureRandom random = new SecureRandom();
-            StringBuilder codeBuilder = new StringBuilder();
-
-            for (int i = 0; i < CODE_LENGTH; i++) {
-                int randomIndex = random.nextInt(CHARACTERS.length());
-                char randomChar = CHARACTERS.charAt(randomIndex);
-                codeBuilder.append(randomChar);
-            }
-
-            code = codeBuilder.toString();
-
-        } while (getEventIdByCode(code) != -1);
-
-        return code;
-    }
-
     public boolean isCodeValid(String eventCode) {
         if (eventCode == null || eventCode.isEmpty()) return false;
 
@@ -867,51 +631,30 @@ public class Data {
         }
     }
 
-    public String checkEvent(String eventCode, User loggedUser) {
-        if (eventCode == null || eventCode.isEmpty()) return "error";
-        if (loggedUser == null) return "error";
+    public String generateCode() {
+        final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        final int CODE_LENGTH = 5;
+        String code = "";
 
-        try {
-            String selectEventQuery = "SELECT * FROM EVENT WHERE CODE = ?";
-            try (PreparedStatement selectEventStatement = connection.prepareStatement(selectEventQuery)) {
-                selectEventStatement.setString(1, eventCode);
-                try (ResultSet eventResultSet = selectEventStatement.executeQuery()) {
-                    if (eventResultSet.next()) {
-                        int eventId = eventResultSet.getInt("ID");
-                        LocalDateTime expirationTime = LocalDateTime.parse(eventResultSet.getString("CODEEXPIRATIONTIME"), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        do {
+            SecureRandom random = new SecureRandom();
+            StringBuilder codeBuilder = new StringBuilder();
 
-                        if (expirationTime.isBefore(LocalDateTime.now())) {
-                            return "expired";
-                        }
-
-                        String selectParticipantQuery = "SELECT * FROM EVENT_PARTICIPANT WHERE EVENT_ID = ? AND USER_EMAIL = ?";
-                        try (PreparedStatement selectParticipantStatement = connection.prepareStatement(selectParticipantQuery)) {
-                            selectParticipantStatement.setInt(1, eventId);
-                            selectParticipantStatement.setString(2, loggedUser.getEmail());
-                            try (ResultSet participantResultSet = selectParticipantStatement.executeQuery()) {
-                                if (participantResultSet.next()) {
-                                    return "used";
-                                } else {
-                                    String insertParticipantQuery = "INSERT INTO EVENT_PARTICIPANT (EVENT_ID, USER_EMAIL) VALUES (?, ?)";
-                                    try (PreparedStatement insertParticipantStatement = connection.prepareStatement(insertParticipantQuery)) {
-                                        insertParticipantStatement.setInt(1, eventId);
-                                        insertParticipantStatement.setString(2, loggedUser.getEmail());
-                                        insertParticipantStatement.executeUpdate();
-                                        return "success";
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        return "error";
-                    }
-                }
+            for (int i = 0; i < CODE_LENGTH; i++) {
+                int randomIndex = random.nextInt(CHARACTERS.length());
+                char randomChar = CHARACTERS.charAt(randomIndex);
+                codeBuilder.append(randomChar);
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return "error";
-        }
+
+            code = codeBuilder.toString();
+
+        } while (getEventIdByCode(code) != -1);
+
+        return code;
     }
 
+    public static String generateBase64(String user, String password) {
+        return String.valueOf(Base64.encode(user + ":" + password));
+    }
 
 }

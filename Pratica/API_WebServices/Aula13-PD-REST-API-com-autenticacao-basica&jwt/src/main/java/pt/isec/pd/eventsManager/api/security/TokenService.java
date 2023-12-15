@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 @Service
 public class TokenService {
     private final JwtEncoder encoder;
+    private String lastGeneratedScope;
 
     public TokenService(JwtEncoder encoder) {
         this.encoder = encoder;
@@ -27,13 +28,19 @@ public class TokenService {
                 .collect(Collectors.joining(" "));
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer("self")
+                .issuer("tfigueiredo")
                 .issuedAt(now)
                 .expiresAt(now.plus(5, ChronoUnit.MINUTES))
                 .subject(authentication.getName())
                 .claim("scope", scope)
                 .build();
 
+        this.lastGeneratedScope = scope;
+
         return this.encoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+    }
+
+    public String getLastGeneratedScope() {
+        return this.lastGeneratedScope;
     }
 }

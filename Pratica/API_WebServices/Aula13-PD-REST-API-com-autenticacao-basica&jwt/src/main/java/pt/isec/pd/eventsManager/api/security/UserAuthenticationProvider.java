@@ -24,10 +24,8 @@ public class UserAuthenticationProvider implements AuthenticationProvider {
         String password = authentication.getCredentials().toString();
 
         if (Data.getInstance().checkIfUserExists(username)) {
-            System.out.println("user exists");
             User userAuth = Data.getInstance().authenticate(username, password);
             if (userAuth != null) {
-                System.out.println("user authenticated");
                 List<GrantedAuthority> authorities = new ArrayList<>();
                 if (userAuth.isAdmin()) authorities.add(new SimpleGrantedAuthority("ADMIN"));
                 else authorities.add(new SimpleGrantedAuthority("USER"));

@@ -4,7 +4,12 @@ import com.nimbusds.jose.util.Base64;
 
 import java.io.IOException;
 import java.net.*;
+import java.util.Map;
 import java.util.Scanner;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
+import io.jsonwebtoken.Jwts;
+import pt.isec.pd.eventsManager.api.repository.Data;
 
 public class UserTerminal {
 
@@ -73,7 +78,6 @@ public class UserTerminal {
         if (user == 1) {
             System.out.println("login user:\n");
             String encodedString = String.valueOf(Base64.encode("tiagofr.figueiredo@gmail.com:admin"));
-            System.out.println("Base64: " + encodedString + "\n" + "Info: tiagofr.figueiredo@gmail.com:admin");
 
             String tokenUser = sendRequestAndShowResponse(login, "GET", "basic " + encodedString, null);
             System.out.println("Token do user: " + tokenUser);
@@ -96,11 +100,27 @@ public class UserTerminal {
 
         } else if (user == 2) {
             System.out.println("login admin:\n");
-            String encodedString_Admin = String.valueOf(Base64.encode("admin:admin"));
-            System.out.println("Base64: " + encodedString_Admin + "\n" + "Info: admin:admin");
 
-            String token = sendRequestAndShowResponse(login, "GET", "basic " + encodedString_Admin, null);
+            String hashedKey = Data.generateBase64("admin", "admin");
+
+            //TODO: mudar a estrutura do sendRequestAndShowResponse para outra coisa se não token
+            //TODO: mas não esquecer de guardar o TOKEN
+            //String token = Data.sendRequestAndShowResponse( login,"GET", "basic " + hashedKey, null);
+
+            Map<String, String> responseMap = Data.sendLoginRequest(login,"GET", "basic " + hashedKey, null);
+
+            System.out.println(responseMap.get("admin"));
+
+            String token = responseMap.get("token");
             System.out.println("Token do user: " + token);
+
+
+
+//                String encodedString_Admin = String.valueOf(Base64.encode("admin:admin"));
+//            System.out.println("Base64: " + encodedString_Admin + "\n" + "Info: admin:admin");
+
+            //String token = sendRequestAndShowResponse(login, "GET", "basic " + encodedString_Admin, null);
+            //System.out.println("Token do user: " + token);
 
             String token2 = sendRequestAndShowResponse(events, "GET", "bearer " + token, null);
 

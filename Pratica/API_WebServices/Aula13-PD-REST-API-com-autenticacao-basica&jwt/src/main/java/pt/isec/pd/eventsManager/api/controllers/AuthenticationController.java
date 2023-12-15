@@ -13,6 +13,9 @@ import pt.isec.pd.eventsManager.api.repository.Data;
 import pt.isec.pd.eventsManager.api.security.TokenService;
 import pt.isec.pd.eventsManager.api.models.UserConfig;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 public class AuthenticationController {
     private final TokenService tokenService;
@@ -20,11 +23,24 @@ public class AuthenticationController {
     public AuthenticationController(TokenService tokenService) {
         this.tokenService = tokenService;
     }
-//
+
     @GetMapping("/login")
-    public String login(Authentication authentication) {
-        return tokenService.generateToken(authentication);
+    public Map<String, String> login(Authentication authentication) {
+        String token = tokenService.generateToken(authentication);
+        String lastGeneratedScope = tokenService.getLastGeneratedScope();
+
+        Map<String, String> response = new HashMap<>();
+
+        response.put("token", token);
+        response.put("admin", lastGeneratedScope.equalsIgnoreCase("admin") ? "true" : "false");
+
+        return response;
     }
+//
+//    @GetMapping("/login")
+//    public String login(Authentication authentication) {
+//        return tokenService.generateToken(authentication);
+//    }
 
     @PostMapping("/register")
     public ResponseEntity register(
@@ -37,7 +53,7 @@ public class AuthenticationController {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Utilizador já existe.");
 
         return Data.getInstance().registerUser(new User(userConfig.username, userConfig.nif, userConfig.email, userConfig.password, false))
-                ? ResponseEntity.status(HttpStatus.CREATED).body(userConfig)
+                ? ResponseEntity.status(HttpStatus.CREATED).body(userConfig + "\nUtilizador criado com sucesso.")
                 : ResponseEntity.status(HttpStatus.BAD_REQUEST).body(userConfig + "\nErro na base de dados ao criar utilizador.");
     }
 }
