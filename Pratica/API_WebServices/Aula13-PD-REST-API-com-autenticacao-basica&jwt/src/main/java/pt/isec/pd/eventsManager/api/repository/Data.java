@@ -1,6 +1,5 @@
 package pt.isec.pd.eventsManager.api.repository;
 
-import io.jsonwebtoken.Jwts;
 import com.nimbusds.jose.util.Base64;
 
 import org.springframework.security.core.Authentication;
@@ -24,9 +23,6 @@ import java.util.Date;
 public class Data {
     private Connection connection;
     private static Data instance;
-    public boolean isAdmin;
-    public Jwt userDetails;
-    public String tokenValue;
 
     public static Data getInstance(String location) {
         if (instance == null) {
@@ -666,9 +662,29 @@ public class Data {
     public static void validateDateFormat(String date, SimpleDateFormat dateFormat) throws ParseException {
         Date parsedDate = dateFormat.parse(date);
 
-        // Se o parsing falhar, ou se a data fornecida não for igual à data formatada, lance uma exceção
         if (!date.equals(dateFormat.format(parsedDate))) {
             throw new ParseException("Formato de data inválido. Utilize o formato yyyy-MM-dd.", 0);
         }
     }
+
+    public static void validateTimeFormat(String time, SimpleDateFormat timeFormat) throws ParseException {
+        Date parsedTime = timeFormat.parse(time);
+
+        if (!time.equals(timeFormat.format(parsedTime))) {
+            throw new ParseException("Formato de hora inválido. Utilize o formato HH:mm.", 0);
+        }
+    }
+
+    public boolean verifyToken(Authentication authentication) {
+        Jwt jwt = (Jwt) authentication.getCredentials();
+
+        Date token = Date.from(jwt.getExpiresAt());
+
+        if (token.before(new Date())) {
+            return false;
+        }
+
+        return true;
+    }
+
 }

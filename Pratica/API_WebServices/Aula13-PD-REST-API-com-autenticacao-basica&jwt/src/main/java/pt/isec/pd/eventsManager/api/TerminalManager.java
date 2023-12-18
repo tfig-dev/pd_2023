@@ -1,4 +1,4 @@
-package pt.isec.pd.eventsManager.api.unUSED;
+package pt.isec.pd.eventsManager.api;
 
 import pt.isec.pd.eventsManager.api.repository.Data;
 
@@ -15,12 +15,13 @@ public class TerminalManager {
     private static String API_LINK = "http://localhost:8080",
             LOGIN = "/login", REGISTER = "/register", EVENTS = "/events", ATTENDANCES = "/attendances";
 
-    private String name, username, email, password, tokenUser, location, date, startTime, endTime, startDate, endDate;
-    private int nif, idEvent, idEvent2, idEvent3, validity;
+    private String name, username, email, password, tokenUser, location, date, startTime, endTime, startDate, endDate, idEvent, idEvent2, idEvent3, idEvent4;
+    private int nif, validity, idEvent1test, idEvent2test, idEvent3test, idEvent4test;
     private boolean isAdmin;
     private BufferedReader bin = new BufferedReader(new InputStreamReader(System.in));
     private PrintStream pout = System.out;
     public SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+    public SimpleDateFormat timeFormat = new SimpleDateFormat("hh:mm");
 
 
     public void displayMainMenu() {
@@ -95,7 +96,6 @@ public class TerminalManager {
 
                     String hashedKey = Data.generateBase64(email, password);
 
-                    //TODO: prevenir dentro do endpoint as coisas a null/empty
                     Map<String, String> responseMap = Data.sendLoginRequest(API_LINK + LOGIN,"GET", "basic " + hashedKey, null);
 
                     tokenUser = responseMap.get("token");
@@ -136,7 +136,7 @@ public class TerminalManager {
                         break;
                     }
 
-                    String registerBody = "{\"username\":\"" + username + "\",\"email\":\"" + email + "\",\"password\":\"" + password + "\",\"nif\":" + nif + "}";
+                    String registerBody = "{\"name\":\"" + username + "\",\"email\":\"" + email + "\",\"password\":\"" + password + "\",\"nif\":" + nif + "}";
                     Data.sendRequestAndShowResponse(API_LINK + REGISTER, "POST", null, registerBody);
 
                     break;
@@ -150,8 +150,6 @@ public class TerminalManager {
                     break;
             }
         }
-
-
     }
 
     public void processAdminMenu() throws IOException {
@@ -180,8 +178,15 @@ public class TerminalManager {
                         break;
                     }
 
-                    pout.println("Hora do inicio do evento (hh:mm): ");
-                    startTime = bin.readLine();
+                    try {
+                        pout.println("Hora do inicio do evento (hh:mm): ");
+                        startTime = bin.readLine();
+
+                        Data.validateTimeFormat(startTime, timeFormat);
+                    } catch (Exception e) {
+                        pout.println("Informação inválida.");
+                        break;
+                    }
 
                     pout.println("Hora do fim do evento (hh:mm): ");
                     endTime = bin.readLine();
@@ -191,10 +196,7 @@ public class TerminalManager {
                         break;
                     }
 
-                    //TODO: verificar se está bem dentro do endpoint
                     String insertEventBody = "{\"name\":\"" + name + "\",\"location\":\"" + location + "\",\"date\":\"" + date + "\",\"startTime\":\"" + startTime + "\",\"endTime\":\"" + endTime + "\"}";
-
-                    System.out.println(insertEventBody);
 
                     Data.sendRequestAndShowResponse(API_LINK + EVENTS, "POST", "bearer " + tokenUser, insertEventBody);
 
@@ -202,7 +204,8 @@ public class TerminalManager {
                 case "2":
                     try {
                         pout.println("ID do evento a eliminar: ");
-                        idEvent = Integer.parseInt(bin.readLine());
+                        idEvent = bin.readLine();
+                        idEvent1test = Integer.parseInt(idEvent);
                     } catch (NumberFormatException e) {
                         pout.println("Informação inválida.");
                         break;
@@ -226,7 +229,8 @@ public class TerminalManager {
                             case "2":
                                 try {
                                     pout.println("ID do evento: ");
-                                    idEvent = Integer.parseInt(bin.readLine());
+                                    idEvent2 = bin.readLine();
+                                    idEvent2test = Integer.parseInt(idEvent2);
                                 } catch (NumberFormatException e) {
                                     pout.println("Informação inválida.");
                                     break;
@@ -242,8 +246,6 @@ public class TerminalManager {
                                     pout.println("Informação inválida.");
                                     break;
                                 }
-
-                                System.out.println("vai isto: " + API_LINK + EVENTS + "?name=" + name);
 
                                 Data.sendRequestAndShowResponse(API_LINK + EVENTS + "?name=" + name, "GET", "bearer " + tokenUser, null);
 
@@ -298,7 +300,9 @@ public class TerminalManager {
                 case "4":
                     try {
                         pout.println("ID do evento: ");
-                        idEvent2 = Integer.parseInt(bin.readLine());
+                        idEvent3 = bin.readLine();
+                        idEvent3test = Integer.parseInt(idEvent3);
+
                     } catch (NumberFormatException e) {
                         pout.println("Informação inválida.");
                         break;
@@ -310,7 +314,8 @@ public class TerminalManager {
                 case "5":
                     try {
                         pout.println("ID do evento: ");
-                        idEvent3 = Integer.parseInt(bin.readLine());
+                        idEvent4 = bin.readLine();
+                        idEvent4test = Integer.parseInt(idEvent4);
                     } catch (NumberFormatException e) {
                         pout.println("Informação inválida.");
                         break;
@@ -335,9 +340,7 @@ public class TerminalManager {
                     pout.println("Invalid option");
                     break;
             }
-
         }
-
     }
 
     public void processUserMenu() throws IOException {
@@ -430,5 +433,4 @@ public class TerminalManager {
             }
         }
     }
-
 }

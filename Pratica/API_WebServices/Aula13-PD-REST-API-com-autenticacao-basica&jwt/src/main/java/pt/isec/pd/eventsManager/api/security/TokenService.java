@@ -28,7 +28,7 @@ public class TokenService {
                 .collect(Collectors.joining(" "));
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer("tfigueiredo")
+                .issuer("pt.isec.pd2023")
                 .issuedAt(now)
                 .expiresAt(now.plus(5, ChronoUnit.MINUTES))
                 .subject(authentication.getName())

@@ -1,4 +1,4 @@
-package pt.isec.pd.eventsManager.api.unUSED;
+package pt.isec.pd.eventsManager.api;
 
 import java.io.BufferedReader;
 import java.io.IOException;

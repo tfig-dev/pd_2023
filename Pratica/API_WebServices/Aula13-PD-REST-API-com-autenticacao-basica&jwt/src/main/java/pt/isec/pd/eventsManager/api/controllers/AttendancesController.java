@@ -4,12 +4,12 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import pt.isec.pd.eventsManager.api.models.Event;
 import pt.isec.pd.eventsManager.api.models.User;
 import pt.isec.pd.eventsManager.api.repository.Data;
 
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -17,19 +17,32 @@ import java.util.Map;
 @RestController
 @RequestMapping("attendances")
 public class AttendancesController {
+    public SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
 
     @GetMapping("/{id}")
     public ResponseEntity getAttendanceById(
             Authentication authentication,
-            @PathVariable("id") Integer id) {
+            @PathVariable("id") String id) {
+
+        Integer idInt = null;
+
+        if (!Data.getInstance().verifyToken(authentication))
+            return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).body("Token expirado.");
 
         if (!authentication.getAuthorities().toString().contains("ADMIN"))
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Utilizador sem permissões de Administrador.");
 
-        if (!Data.getInstance().checkIfEventExists(id))
+        try {
+            idInt = Integer.parseInt(id);
+        } catch (NumberFormatException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro ao obter presença - ID inválido.");
+        }
+
+        if (!Data.getInstance().checkIfEventExists(idInt))
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("O evento não existe.");
 
-        List<User> users = Data.getInstance().getRecords(id);
+        List<User> users = Data.getInstance().getRecords(idInt);
+
         if (users.isEmpty())
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Não foram encontrados registos.");
 
@@ -44,14 +57,29 @@ public class AttendancesController {
             @RequestParam(value = "startDate", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
             @RequestParam(value = "endDate", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
 
-        List<Event> events;
+        if (!Data.getInstance().verifyToken(authentication))
+            return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).body("Token expirado.");
 
         if (!authentication.getAuthorities().toString().contains("USER"))
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Utilizador sem permissões de Administrador.");
 
-        if (startDate != null && endDate != null)
+        List<Event> events;
+
+        if (startDate != null && endDate != null) {
+            try {
+                Data.validateDateFormat(String.valueOf(startDate), dateFormat);
+            } catch (Exception e) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro ao obter presença - Data inválida.");
+            }
+
+            try {
+                Data.validateDateFormat(String.valueOf(endDate), dateFormat);
+            } catch (Exception e) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro ao obter presença - Data inválida.");
+            }
+
             events = Data.getInstance().getAttendanceRecords_v2(eventName, eventLocation, startDate.toString(), endDate.toString(), authentication.getName());
-        else if (startDate != null)
+        } else if (startDate != null)
             return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).body("Uso errado de filtros.");
         else if (endDate != null)
             return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).body("Uso errado de filtros.");
@@ -70,10 +98,13 @@ public class AttendancesController {
             Authentication authentication,
             @RequestBody Map<String, String> requestBody) {
 
-        String code = requestBody.get("code");
+        if (!Data.getInstance().verifyToken(authentication))
+            return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT).body("Token expirado.");
 
         if (!authentication.getAuthorities().toString().contains("USER"))
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Utilizador sem permissões de Administrador.");
+
+        String code = requestBody.get("code");
 
         if (code == null || code.isEmpty() || authentication.getName() == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Dados inválidos.");

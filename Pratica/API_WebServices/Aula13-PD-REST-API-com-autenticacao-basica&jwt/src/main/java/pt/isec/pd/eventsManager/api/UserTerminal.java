@@ -1,4 +1,4 @@
-package pt.isec.pd.eventsManager.api.unUSED;
+package pt.isec.pd.eventsManager.api;
 
 import com.nimbusds.jose.util.Base64;
 
@@ -103,8 +103,6 @@ public class UserTerminal {
 
             String hashedKey = Data.generateBase64("admin", "admin");
 
-            //TODO: mudar a estrutura do sendRequestAndShowResponse para outra coisa se não token
-            //TODO: mas não esquecer de guardar o TOKEN
             //String token = Data.sendRequestAndShowResponse( login,"GET", "basic " + hashedKey, null);
 
             Map<String, String> responseMap = Data.sendLoginRequest(login,"GET", "basic " + hashedKey, null);

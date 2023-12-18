@@ -1,5 +1,8 @@
 package pt.isec.pd.eventsManager.api.models;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.io.Serial;
 import java.io.Serializable;
 
@@ -20,13 +23,26 @@ public class User implements Serializable {
         this.isAdmin = isAdmin;
     }
 
-    public User(String name, int nif, String email, String password) {
+    @JsonCreator
+    public User(@JsonProperty("name") String name,
+                @JsonProperty("nif") int nif,
+                @JsonProperty("email") String email,
+                @JsonProperty("password") String password) {
         this.name = name;
         this.nif = nif;
         this.email = email;
         this.password = password;
         this.isAdmin = false;
     }
+
+
+//    public User(String name, int nif, String email, String password) {
+//        this.name = name;
+//        this.nif = nif;
+//        this.email = email;
+//        this.password = password;
+//        this.isAdmin = false;
+//    }
 
     public String getName() {
         return name;
@@ -49,7 +65,8 @@ public class User implements Serializable {
         return "{" +
                 "\"email\":\"" + email +
                 "\",\"name\":\"" + name +
-                "\",\"nif\":" + nif + "}";
+                "\",\"nif\":" + nif +
+                "\",\"isAdmin\":" + isAdmin + "\"}";
     }
 
     public boolean isAdmin() {

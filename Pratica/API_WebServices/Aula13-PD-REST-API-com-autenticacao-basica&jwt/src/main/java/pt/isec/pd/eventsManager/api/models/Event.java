@@ -25,15 +25,6 @@ public class Event implements Serializable {
         this.endTime = endTime;
     }
 
-//    public Event(String name, String location, String date, String startTime, String endTime) {
-//        this.ID = -1;
-//        this.name = name;
-//        this.location = location;
-//        this.date = date;
-//        this.startTime = startTime;
-//        this.endTime = endTime;
-//    }
-
     @JsonCreator
     public Event(@JsonProperty("name") String name,
                  @JsonProperty("location") String location,

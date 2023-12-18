@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import pt.isec.pd.eventsManager.api.models.User;
 import pt.isec.pd.eventsManager.api.repository.Data;
 import pt.isec.pd.eventsManager.api.security.TokenService;
-import pt.isec.pd.eventsManager.api.models.UserConfig;
+
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,7 +36,7 @@ public class AuthenticationController {
 
         return response;
     }
-//
+
 //    @GetMapping("/login")
 //    public String login(Authentication authentication) {
 //        return tokenService.generateToken(authentication);
@@ -44,15 +44,28 @@ public class AuthenticationController {
 
     @PostMapping("/register")
     public ResponseEntity register(
-            @RequestBody UserConfig userConfig) {
+            @RequestBody User userConfig) {
 
-        if (userConfig.username == null || userConfig.nif == 0 || userConfig.email == null || userConfig.password == null)
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro ao criar utilizador - Parametros necessários em falta.");
+        if (userConfig.getName() == null || userConfig.getName().length() < 3 || !userConfig.getName().matches("^[a-zA-Z]+$")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro ao criar utilizador - Nome inválido.");
+        }
 
-        if (Data.getInstance().checkIfUserExists(userConfig.email))
+        if (userConfig.getNif() <= 0) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro ao criar utilizador - NIF inválido.");
+        }
+
+        if (userConfig.getEmail() == null || !userConfig.getEmail().matches("^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro ao criar utilizador - Email inválido.");
+        }
+
+        if (userConfig.getPassword() == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro ao criar utilizador - Password inválida.");
+        }
+
+        User user = new User(userConfig.getName(), userConfig.getNif(), userConfig.getEmail(), userConfig.getPassword(), false);
+
+        if (Data.getInstance().checkIfUserExists(userConfig.getEmail()))
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Utilizador já existe.");
-
-        User user = new User(userConfig.username, userConfig.nif, userConfig.email, userConfig.password, false);
 
         return Data.getInstance().registerUser(user)
                 ? ResponseEntity.status(HttpStatus.CREATED).body(user + "\nUtilizador criado com sucesso.")
