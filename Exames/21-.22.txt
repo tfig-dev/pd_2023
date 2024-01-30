@@ -1,0 +1,195 @@
+1.
+public class CalorieCalculatorServer
+{
+    public static void main(String[] args)
+    {
+        try {
+            /*
+
+            ServerSocket servSocket = new ServerSocket(9123);
+
+             */
+            while (true) {
+                /*
+
+                Socket cliSocket = servSocket.accept();
+                ThreadTCP t = new ThreadTCP(cliSocket);
+                t.start();
+
+                 */
+            }
+        } catch (IOException e) { e.printStackTrace(); }
+    }
+}
+
+public class ThreadTCP extends Thread
+{
+    private final Socket cliSocket;
+    public ThreadTCP(Socket cliSocket)
+    {
+        this.cliSocket = cliSocket;
+    }
+    @Override
+    public void run()
+    {
+        try {
+            UserInfo ui;
+
+            /*
+
+            ObjectInputStream in = new ObjectInputStream(cliSocket.getInputStream());
+            ui = (UserInfo) in.readObject();
+
+             */
+
+            ThreadUDP tUDP = new ThreadUDP();
+            tUDP.start();
+
+            /*
+            DatagramSocket udpSocket = tUDP.getSocket();
+            int port = udpSocket.getLocalPort();
+            ObjectOutputStream out = new ObjectOutputStream(cliSocket.getOutputStream());
+            out.writeObject(port);
+            out.flush();
+            String stop;
+            do{
+                in = new ObjectInputStream(cliSocket.getInputStream());
+                stop = (String) in.readObject();
+            }while(!stop.equals("stop"))
+
+             */
+
+            tUDP.closeSocket();
+            tUDP.join();
+            double calories = calculateCalories(ui.getGender(), ui.getWeight(), ui.getAge(), tUDP.getHeartRates());
+
+            /*
+
+            out = new ObjectOutputStream(cliSocket.getOutputStream());
+            out.writeObject(calories);
+            out.flush();
+
+             */
+        } catch (IOException | ClassNotFoundException | InterruptedException e) { e.printStackTrace(); }
+    }
+}
+
+    private double calculateCalories(char gender, double weight, int age, ArrayList<Integer> heartRates) {
+// [5] ...
+// implementação do cálculo de calorias gastas com base nas frequências cardíacas e informações do atleta
+// como género, peso e idade
+    }
+}
+
+public class ThreadUDP extends Thread
+{
+    private DatagramSocket ds;
+    private int port;
+    private final List<Integer> heartRates;
+    public ThreadUDP() throws SocketException
+    {
+        this.ds = new DatagramSocket();
+        this.port = ds.getLocalPort();
+        this.heartRates = new ArrayList<>();
+    }
+    public Integer[] getHeartRates()
+    {
+        Integer[] heartRatesArr;
+        synchronized (heartRates) {
+            heartRatesArr = new Integer[heartRates.size()];
+            heartRatesArr = heartRates.toArray(heartRatesArr);
+        }
+        return heartRatesArr;
+    }
+    public int getPort()
+    {
+        return port;
+    }
+    public void closeSocket()
+    {
+        if (ds != null)
+            ds.close();
+    }
+    @Override
+    public void run()
+    {
+        try {
+            byte[] buffer = new byte[256];
+            while (true) {
+                /*
+
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                ds.receive(packet);
+                heartRates.add(Integer.parseInt(new String(packet.getData()).trim()));
+
+                 */
+            }
+        } catch (IOException e) {
+            if (!ds.isClosed()) { e.printStackTrace(); }
+        }
+    }
+}
+
+2.
+public interface RemoteHeartRateObserver extends Remote
+{
+    /*
+
+    void alertMaximumHeartRate() throws RemoteException;
+
+     */
+}
+
+public interface RemoteHeartRateValidator extends Remote
+{
+    /*
+
+    void registerListener(RemoteHeartRateObserver observer) throws RemoteException;
+    void checkHeartRate(int heartRate, int age) throws RemoteException;
+
+     */
+}
+
+public class HeartRateValidatorRMI /* extends UnicastRemoteObject implements RemoteHeartRateValidator */
+{
+    private CopyOnWriteArrayList<RemoteHeartRateObserver> observers;
+    protected HeartRateValidatorRMI() throws RemoteException {
+        this.observers = new CopyOnWriteArrayList<>();
+    }
+    @Override
+    public void registerListener(RemoteHeartRateObserver observer) /* throws RemoteException */ {
+        observers.add(observer);
+    }
+    @Override
+    public void checkHeartRate(int heartRate, int age) /* throws RemoteException */
+    {
+        /*
+        
+        int threshold = 220 - age;
+        if (heartRate > threshold) {
+            for (RemoteHeartRateObserver observer : observers) {
+                try {
+                    observer.alertMaximumHeartRate();
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                    observers.remove(observer);
+                }
+            }
+        }
+        
+         */
+    }
+    public static void main(String[] args) {
+        try {
+            /*
+            
+            Registry registry = LocateRegistry.createRegistry(1071);
+            HeartRateValidatorRMI validator = new HeartRateValidatorRMI();
+            registry.rebind("HR_MAX_VALIDATOR", validator);
+            
+             */
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+    }
+}

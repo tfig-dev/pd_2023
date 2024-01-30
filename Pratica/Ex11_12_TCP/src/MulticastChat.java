@@ -66,7 +66,7 @@ public class MulticastChat extends Thread {
                             try (ByteArrayOutputStream buff = new ByteArrayOutputStream();
                                 ObjectOutputStream bout = new ObjectOutputStream(buff)) {
 
-                                bout.writeObject(username);
+                                bout.writeObject(username + " : exato");
 
                                 //Envia o username 'a origem sob a forma de um objecto serializado do tipo String
                                 pkt.setData(buff.toByteArray(), 0, buff.size());
@@ -81,6 +81,8 @@ public class MulticastChat extends Thread {
 
                             s.send(pkt);
                             continue;
+                        } else if (msg.getMsg().equalsIgnoreCase("cenas")) {
+                            System.out.println("recebi cenas do user: " + msg.getNickname());
                         }
 
                         //Mostra a mensagem recebida bem como a identificacao do emissor
@@ -138,9 +140,9 @@ public class MulticastChat extends Thread {
             group = InetAddress.getByName(args[1]);
             port = Integer.parseInt(args[2]);
 
-            try{
+            try {
                 nif = NetworkInterface.getByInetAddress(InetAddress.getByName(args[3])); //e.g., 127.0.0.1, 192.168.10.1, ... 
-            }catch (SocketException | NullPointerException | UnknownHostException | SecurityException ex){
+            } catch (SocketException | NullPointerException | UnknownHostException | SecurityException ex){
                 nif = NetworkInterface.getByName(args[3]); //e.g., lo0, eth0, wlan0, en0, ...
             }
 
